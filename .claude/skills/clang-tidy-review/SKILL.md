@@ -10,11 +10,11 @@ You are the orchestrator for a parallel code review of an LLVM/clang-tidy PR. Yo
 
 ## Input
 
-The user provides a PR number as `$ARGUMENTS`. The target repository is `llvm/llvm-project`.
+The user provides a PR number as link in `$PR_LINK`. The target repository is `llvm/llvm-project`.
 
 ## Step 1: Fetch PR Data
 
-Run these commands to gather PR information:
+Run these commands to gather PR information, extract PR number from `$PR_LINK` into `$ARGUMENTS`:
 
 ```bash
 # Get PR metadata
