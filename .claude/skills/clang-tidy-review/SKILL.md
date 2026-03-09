@@ -350,7 +350,30 @@ First, get the latest commit SHA:
 gh api repos/llvm/llvm-project/pulls/PR_NUMBER/commits --jq '.[-1].sha'
 ```
 
-Build a JSON payload with all findings that have a specific file:line and post as a pending review:
+Build a JSON payload with all findings that have a specific file:line and post as a pending review.
+
+**CRITICAL: Comment style rules**
+- Write comments as a human reviewer would — short, conversational, direct.
+- **NO rule references** (no "Rule 3.1", "Rule 5.4", no "[Rule X.Y]" prefixes, no guideline numbers).
+- **NO bold headers** or structured formatting. Just plain text.
+- **Keep it short** — 1-3 sentences max. If you need a code snippet, keep it minimal.
+- Sound like an experienced LLVM contributor leaving a quick review comment, not a bot.
+
+Good example:
+```json
+{"body": "This is out of alphabetical order — should be near the other `Mis*` entries."}
+```
+```json
+{"body": "nit: double parens here look odd, single parens would be more idiomatic:\n```cpp\nif (std::find(begin, end, 2) != end) {\n```"}
+```
+```json
+{"body": "Could you push this filtering into the matcher? Something like `unless(hasType(booleanType()))` would avoid the work in `check()`."}
+```
+
+Bad example (do NOT do this):
+```json
+{"body": "**[Rule 3.21]** `getParentLogicalNot()` uses upward traversal via `Context.getParents()` in a loop, which is expensive (parent map is lazily constructed on first use, then each lookup has cost).\n\nSuggestion: Consider matching the negation pattern directly in the matcher using `unaryOperator(hasOperatorName(\"!\"), hasUnaryOperand(ignoringParenImpCasts(...)))` and binding it. This pushes the logic into the matcher (per rule 3.1) and avoids the parent map lookups."}
+```
 
 ```bash
 cat <<'REVIEW_JSON' > /tmp/pr_review.json
@@ -363,7 +386,7 @@ cat <<'REVIEW_JSON' > /tmp/pr_review.json
       "path": "path/to/file.cpp",
       "line": 42,
       "side": "RIGHT",
-      "body": "**[Rule X.Y]** Description.\n\nSuggestion: ..."
+      "body": "Short, human-like comment here."
     }
   ]
 }
