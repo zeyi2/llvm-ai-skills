@@ -1,7 +1,7 @@
 ---
 name: clang-tidy-review
 description: Review a clang-tidy PR against LLVM coding guidelines. Triggers on "review PR", "clang-tidy review", "review pull request".
-allowed-tools: Bash, Read, Grep, Glob, Agent
+allowed-tools: Bash, Read, Grep, Glob, Agent, Write
 ---
 
 # clang-tidy PR Review
@@ -344,22 +344,16 @@ For each:
 
 After presenting the review and getting user confirmation, create a **pending** (draft) review with all inline comments. The user will publish it manually from GitHub.
 
-First, get the latest commit SHA:
+### Comment style rules
 
-```bash
-gh api repos/llvm/llvm-project/pulls/PR_NUMBER/commits --jq '.[-1].sha'
-```
+Write comments as a human reviewer would — short, conversational, direct.
 
-Build a JSON payload with all findings that have a specific file:line and post as a pending review.
-
-**CRITICAL: Comment style rules**
-- Write comments as a human reviewer would — short, conversational, direct.
 - **NO rule references** (no "Rule 3.1", "Rule 5.4", no "[Rule X.Y]" prefixes, no guideline numbers).
 - **NO bold headers** or structured formatting. Just plain text.
 - **Keep it short** — 1-3 sentences max. If you need a code snippet, keep it minimal.
 - Sound like an experienced LLVM contributor leaving a quick review comment, not a bot.
 
-Good example:
+Good examples:
 ```json
 {"body": "This is out of alphabetical order — should be near the other `Mis*` entries."}
 ```
@@ -372,14 +366,15 @@ Good example:
 
 Bad example (do NOT do this):
 ```json
-{"body": "**[Rule 3.21]** `getParentLogicalNot()` uses upward traversal via `Context.getParents()` in a loop, which is expensive (parent map is lazily constructed on first use, then each lookup has cost).\n\nSuggestion: Consider matching the negation pattern directly in the matcher using `unaryOperator(hasOperatorName(\"!\"), hasUnaryOperand(ignoringParenImpCasts(...)))` and binding it. This pushes the logic into the matcher (per rule 3.1) and avoids the parent map lookups."}
+{"body": "**[Rule 3.21]** `getParentLogicalNot()` uses upward traversal via `Context.getParents()` in a loop, which is expensive (parent map is lazily constructed on first use, then each lookup has cost).\n\nSuggestion: Consider matching the negation pattern directly in the matcher..."}
 ```
 
-```bash
-cat <<'REVIEW_JSON' > /tmp/pr_review.json
+### Writing and posting the JSON
+
+Use the Write tool to create `/tmp/pr_PR_NUMBER_review.json` with this structure (do NOT include `commit_id` or `event` — the post script handles those):
+
+```json
 {
-  "commit_id": "COMMIT_SHA",
-  "event": "PENDING",
   "body": "Review summary here.",
   "comments": [
     {
@@ -390,18 +385,20 @@ cat <<'REVIEW_JSON' > /tmp/pr_review.json
     }
   ]
 }
-REVIEW_JSON
-
-gh api repos/llvm/llvm-project/pulls/PR_NUMBER/reviews --input /tmp/pr_review.json
 ```
 
-After posting, tell the user:
-> Pending review created with [N] inline comments. Go to the PR page to review and publish: [PR URL]
+Then post using the helper script:
+
+```bash
+python3 /path/to/llvm-ai-skills/post_review.py llvm/llvm-project PR_NUMBER /tmp/pr_PR_NUMBER_review.json
+```
+
+The script automatically fetches the latest commit SHA, validates the JSON, forces `event` to `PENDING`, and posts. The review is never auto-published.
 
 **IMPORTANT RESTRICTIONS:**
-- The `event` field MUST always be `"PENDING"`. NEVER use `"APPROVE"`, `"REQUEST_CHANGES"`, or `"COMMENT"` -- these publish the review immediately.
+- NEVER set `event` to `"APPROVE"`, `"REQUEST_CHANGES"`, or `"COMMENT"` in the JSON — the script always forces `PENDING`.
 - NEVER run `gh pr review --approve/--request-changes/--comment` or any command that submits a final review verdict.
-- NEVER run `gh api repos/.../reviews/REVIEW_ID/events` -- this endpoint publishes a pending review.
+- NEVER run `gh api repos/.../reviews/REVIEW_ID/events` — this endpoint publishes a pending review.
 - The user will go to GitHub to edit comments, add/remove findings, and publish when ready.
 
 ## Important Notes
